@@ -1,134 +1,98 @@
 
-# 🧠 XSkill - AI Investment Intelligence Agent
+# XSkill - 智能内容情报 Agent 系统
 
-> **专为 VC 投资研究设计的自动化情报中控台。**
-> 
-> 让 AI 帮你 24/7 监控百位科技 KOL，自动补全数据缝隙，即时标注投资信号，并生成投研级分析报告。
-
-![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)
-![License MIT](https://img.shields.io/badge/license-MIT-green.svg)
-
-## 🚀 核心价值 (Why XSkill?)
-
-传统的投研情报收集面临三大痛点：
-1. **数据碎片化**：需要在 Twitter, Substack 等多个平台手动翻阅。
-2. **分析滞后**：人工阅读数百条推文既耗时又容易遗漏早期的微弱信号。
-3. **流程割裂**：抓取、清洗、翻译、分析、导出通常分散在不同工具中。
-
-**XSkill** 作为一个智能 Agent，通过以下核心能力解决这些问题：
-
-- **🕵️‍♀️ 智能账号发现**：自动监控 Zara 等源头的推荐名单，动态扩充情报池。
-- **🧩 时间缝隙补全**：独创的算法自动计算本地数据缺口，只抓取缺失的时间段，避免重复工作。
-- **🏷️ 无状态动态标注**：不污染原始数据库，根据每次查询意图（如"分析情感"或"寻找SaaS机会"）动态生成标注 Schema。
-- **🧠 深度趋势分析**：基于 LLM (Gemini/Claude) 生成 VC 视角的深度研报，识别 "Under-hyped" 早期机会。
+> 专为 VC 投资研究设计的自动化情报中控台。
 
 ---
 
-## 🏗️ 系统架构
+## 🎯 核心能力与产出物
 
-XSkill 采用模块化 Agent 设计：
+这是一个帮你自动分析 Twitter/X 科技圈动态的 AI Agent。与其费力手动刷推，不如直接问它。
+
+### 📊 你将得到什么？(Deliverables)
+
+1.  **投研级 Excel 数据表**
+    *   包含推文原文、互动数据（赞/转/评）、发布时间。
+    *   **AI 智能标注字段**：根据你的提问动态生成。比如你问“分析投资信号”，Excel 里就会多出 `investment_signal_score` 和 `signal_reason` 列。
+    *   **纯净数据**：数据库只存事实（Source of Truth），所有主观标注都在 Excel 中，互不污染。
+
+2.  **深度分析研报 (Markdown)**
+    *   **趋势总结**：识别多个博主共同关注的“共振信号”。
+    *   **机会扫描**：发现 "Under-hyped" 的早期项目或技术。
+    *   **投资建议**：基于 VC 视角的 Actionable Insights。
+
+---
+
+## 🗣️ 你可以问什么？(Example Queries)
+
+XSkill 的核心交互方式是**自然语言指令**。
+
+#### 1. 日常监控
+> "看看 @amasad 和 @karpathy 最近一周在讨论什么"
+> "列出 A 开头的博主最近 3 天的动态"
+
+#### 2. 深度投研
+> "分析 AI Agent 领域的创业信号，重点关注编程工具赛道"
+> "评估最近一周提到'SaaS 增长'的推文的情感倾向"
+
+#### 3. 数据处理
+> "导出 @swyx 本月的所有推文到 Excel，不需要分析"
+> "标注这些推文是否涉及'融资'信息，并打分 1-5"
+
+---
+
+## ⚙️ 工作原理 (How it Works)
+
+XSkill 采用 **Intent-Driven Architecture** (意图驱动架构)。你的每一个指令都会触发一条自动化的流水线：
 
 ```mermaid
-graph TD
-    User[用户指令] -->|自然语言| Main[Main Controller]
+graph LR
+    User[用户: "分析AI创业信号..."] -->|1. 理解意图| Agent
+    Agent -->|2. 生成 Schema| Schema[JSON Schema: {signal_score, sector}]
+    Agent -->|3. 补全数据| Scraper[只能爬虫: 补全时间缺口]
     
-    subgraph Data Layer [数据层]
-        SM[StorageManager] <--> DB[(SQLite: 原始数据)]
-        SM <--> Manifest[时间覆盖日志]
-    end
+    Data[(原始数据)] -->|4. 动态结合| Annotator[AI 标注引擎]
+    Schema --> Annotator
     
-    subgraph Execution Layer [执行层]
-        Main -->|1.识别意图| QE[QueryEngine]
-        Main -->|2.补全数据| SM
-        SM -->|缺口抓取| Scraper[XScraper]
-        
-        Main -->|3.动态标注| Annotator[DynamicAnnotator]
-        Annotator -->|生成Prompt| LLM[OpenRouter/Gemini]
-        
-        Main -->|4.深度分析| Analyzer[AnalysisGenerator]
-        Analyzer -->|生成报告| Report[Markdown Report]
-        
-        Main -->|5.数据交付| Exporter[Excel Exporter]
-    end
+    Annotator -->|5. 批量推理| Output
+    Output -->|6. 交付| Excel[Excel: 原始数据 + 标注列]
+    Output -->|6. 交付| Report[Markdown: 深度研报]
 ```
 
-## 🛠️ 快速开始
+### 关键机制
+*   **Gap Filling (时间缝隙补全)**: 不会每次都傻乎乎地重爬。系统会自动计算你手里已有的数据（如 1号-5号）和你想要的（1号-10号），然后只去抓取缺失的（6号-10号）。高效且安全。
+*   **Dynamic Annotation (即时标注)**: 数据库里永远只存干净的原始推文。所有的“情感”、“分类”、“评分”都是根据你当下的需求，由 LLM 即时生成的。这使得一套数据可以被无数个维度反复分析。
+
+---
+
+## 🚦 快速开始
 
 ### 1. 安装
-
 ```bash
-# 克隆项目
-git clone https://github.com/your-username/xskill.git
+git clone https://github.com/jinqiu/xskill.git
 cd xskill
-
-# 安装依赖
 pip install -r requirements.txt
 ```
 
-### 2. 配置环境
-
-复制 `.env.example` 到 `.env` 并填入密钥：
-
+### 2. 配置 (.env)
 ```bash
-cp .env.example .env
+OPENROUTER_API_KEY=sk-...  # 用于 LLM 分析
+TWITTER_AUTH_TOKEN=...     # 用于数据抓取
 ```
 
-核心配置：
-- `OPENROUTER_API_KEY`: 用于调用 LLM 进行标注和分析。
-- `TWITTER_AUTH_TOKEN`: 用于 `twikit` 抓取数据。
-
-### 3. 使用场景
-
-**场景 A: 日常情报监控**
+### 3. 运行
 ```bash
-# 查询某人最近一周动态，并生成分析报告
-python main.py "看看 @amasad 最近一周在讨论什么"
+# 场景：分析 AI 编程领域的信号
+python main.py "分析 AI Coding 赛道的投资机会" --start 2024-01-01
 ```
 
-**场景 B: 特定赛道扫描**
-```bash
-# 扫描列表中的博主，寻找 AI Agent 赛道的信号
-python main.py "分析 A 开头博主关于 AI Agent 的讨论" --start 2024-01-01
-```
+## 📂 目录结构
 
-**场景 C: 数据导出**
-```bash
-# 仅导出数据，不做 LLM 分析
-python main.py "导出 elonmusk 本月数据" --no-analyze
-```
+*   `core/`: 核心引擎（存储、标注、导出）
+*   `skills/`: 高级分析能力（研报生成）
+*   `data/`: SQLite 数据库与时间日志
+*   `exports/`: 产出的 Excel 文件
+*   `reports/`: 产出的分析报告
 
-## 📂 项目结构
-
-```
-xskill/
-├── core/                    # 核心引擎
-│   ├── storage_manager.py   # 数据存储与时间缝隙算法 (核心)
-│   ├── annotator.py         # 无状态标注引擎 (Dynamic Schema)
-│   ├── exporter.py          # 投研级 Excel 导出
-│   └── scrapers/            # 数据采集适配器
-├── skills/                  # 高级能力
-│   └── analysis_generator.py # 深度研报生成工厂
-├── scripts/                 # 工具脚本
-├── reports/                 # (GitIgnored) 生成的 Markdown 报告
-├── exports/                 # (GitIgnored) 生成的 Excel 数据
-├── main.py                  # CLI 入口
-└── requirements.txt         # 依赖清单
-```
-
-## ✨ 核心技术亮点
-
-### 1. 无状态动态标注 (Stateless Annotation)
-XSkill **不**在数据库中存储 `sentiment` 或 `topic` 等主观字段。
-数据库只存储 **"Facts"** (原始推文)。
-当用户问 "分析情感" 时，系统实时生成 Schema -> 标注 -> 导出。
-当用户问 "寻找融资信号" 时，系统生成另一套 Schema。
-数据永远纯净，分析永远灵活。
-
-### 2. 时间缝隙算法 (Time Gap Filling)
-系统维护 `manifest.json` 记录所有博主的数据覆盖范围。
-当请求 `2024-01-01` 至 `2024-01-30` 数据时：
-若本地已有 `1.5-1.20`，系统自动计算缺失区间 `[(1.1-1.4), (1.21-1.30)]` 并只抓取这两段。
-
-## 📜 许可证
-
-MIT License. 专为开放投研生态构建。
+---
+*Built for the Agentic Future.*
