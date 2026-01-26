@@ -42,7 +42,7 @@ class XScraper(BaseScraper):
     async def _ensure_cookies(self):
         """确保 cookies 已设置"""
         if not self._cookies_set:
-            print(f"DEBUG: Setting Cookies: auth_token={self.cookies.get('auth_token')}, ct0={self.cookies.get('ct0')}")
+            #print(f"DEBUG: Setting Cookies: auth_token={self.cookies.get('auth_token')}, ct0={self.cookies.get('ct0')}")
             self.client.set_cookies(self.cookies)
             self._cookies_set = True
     
