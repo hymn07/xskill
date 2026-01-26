@@ -52,15 +52,14 @@ class XScraper(BaseScraper):
         start_date: str = None, 
         end_date: str = None,
         count: int = 20,
-        max_retries: int = 5,
-        base_delay: float = 60.0
+        max_retries: int = 2,
+        base_delay: float = 30.0
     ) -> List[Dict]:
         """
         抓取指定用户的推文 (使用 search_tweet 替代 get_user_tweets 以支持更灵活的时间过滤)
         
         Rate Limiting:
-            - 遇到 429 错误时使用指数退避重试 (60s → 120s → 240s → ...)
-            - 最多重试 max_retries 次
+            - 遇到 429 错误时重试 2 次 (30s → 60s)
             - 每次请求前添加随机延迟 (3-5秒)
         """
         await self._ensure_cookies()
@@ -159,7 +158,7 @@ class XScraper(BaseScraper):
                 
             except TooManyRequests as e:
                 if attempt < max_retries:
-                    # 指数退避: 60s → 120s → 240s → 480s → 960s
+                    # 指数退避: 30s → 60s
                     wait_time = base_delay * (2 ** attempt)
                     
                     # 尝试从响应头获取重置时间
