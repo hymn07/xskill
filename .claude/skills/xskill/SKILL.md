@@ -272,9 +272,10 @@ xskill/
 ├── skills/
 │   └── analysis_generator.py  # 研报生成
 ├── data/
-│   ├── accounts.json       # 账号池
-│   ├── manifest.json       # 时间覆盖日志
-│   └── raw_content.db      # SQLite 推文数据库
+│   ├── accounts_level1.json    # 一级账号池（Zara Zhang 直接推荐）
+│   ├── accounts_level2.json    # 二级账号池（Zara 推荐的人推荐的）
+│   ├── manifest.json           # 时间覆盖日志
+│   └── raw_content.db          # SQLite 推文数据库
 ├── exports/                # Excel 输出目录
 └── reports/                # Markdown 研报目录
 ```

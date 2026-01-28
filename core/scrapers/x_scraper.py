@@ -245,6 +245,171 @@ class XScraper(BaseScraper):
         except Exception as e:
             print(f"❌ 获取用户信息失败: {e}")
             return None
+    
+    async def get_user_following(
+        self,
+        screen_name: str,
+        count: int = None,
+        max_retries: int = 2,
+        base_delay: float = 30.0
+    ) -> List[Dict]:
+        """
+        获取用户的 following 列表（支持分页获取全部）
+        
+        Args:
+            screen_name: 用户名
+            count: 获取数量（None = 全部，否则限制最大数量）
+            max_retries: 最大重试次数
+            base_delay: 基础延迟时间（秒）
+        
+        Returns:
+            [
+                {
+                    'screen_name': 'xxx',
+                    'name': 'xxx',
+                    'description': 'bio...',
+                    'followers_count': 123,
+                    ...
+                }
+            ]
+        """
+        await self._ensure_cookies()
+        
+        import random
+        from twikit.errors import TooManyRequests
+        
+        all_results = []
+        
+        for attempt in range(max_retries + 1):
+            try:
+                # 添加随机延迟
+                if attempt > 0 or hasattr(self, '_last_request_time'):
+                    delay = random.uniform(3.0, 5.0)
+                    await asyncio.sleep(delay)
+                
+                self._last_request_time = datetime.now()
+                
+                # 获取用户对象
+                user = await self.client.get_user_by_screen_name(screen_name)
+                
+                # 获取第一页 following
+                following_result = await user.get_following(count=20)
+                
+                # 处理第一页
+                page_size = 0
+                for following_user in following_result:
+                    user_info = {
+                        "screen_name": following_user.screen_name,
+                        "name": following_user.name,
+                        "description": getattr(following_user, 'description', ''),
+                        "followers_count": getattr(following_user, 'followers_count', 0),
+                        "following_count": getattr(following_user, 'following_count', 0),
+                        "verified": getattr(following_user, 'verified', False),
+                        "url": f"https://x.com/{following_user.screen_name}"
+                    }
+                    all_results.append(user_info)
+                    page_size += 1
+                    
+                    # 如果设置了 count 限制，检查是否达到
+                    if count and len(all_results) >= count:
+                        return all_results[:count]
+                
+                print(f"      第 1 页: {page_size} 个，累计 {len(all_results)} 个")
+                
+                # 分页获取剩余数据
+                page_count = 1
+                consecutive_empty_pages = 0 if page_size > 0 else 1
+                
+                while True:
+                    # 检查是否还有下一页
+                    if not hasattr(following_result, 'next') or following_result.next is None:
+                        print(f"      ✅ 已获取全部数据")
+                        break
+                    
+                    # 检查连续空页数
+                    if consecutive_empty_pages >= 5:
+                        print(f"      ✅ 连续 5 页无数据，停止获取")
+                        break
+                    
+                    # 添加分页延迟
+                    await asyncio.sleep(random.uniform(2.0, 4.0))
+                    
+                    try:
+                        # 获取下一页
+                        following_result = await following_result.next()
+                        page_count += 1
+                        
+                        # 处理这一页的数据
+                        page_size = 0
+                        for following_user in following_result:
+                            user_info = {
+                                "screen_name": following_user.screen_name,
+                                "name": following_user.name,
+                                "description": getattr(following_user, 'description', ''),
+                                "followers_count": getattr(following_user, 'followers_count', 0),
+                                "following_count": getattr(following_user, 'following_count', 0),
+                                "verified": getattr(following_user, 'verified', False),
+                                "url": f"https://x.com/{following_user.screen_name}"
+                            }
+                            all_results.append(user_info)
+                            page_size += 1
+                            
+                            # 如果设置了 count 限制，检查是否达到
+                            if count and len(all_results) >= count:
+                                return all_results[:count]
+                        
+                        # 更新连续空页计数
+                        if page_size == 0:
+                            consecutive_empty_pages += 1
+                        else:
+                            consecutive_empty_pages = 0
+                        
+                        # 每 10 页显示一次进度
+                        if page_count % 10 == 0:
+                            print(f"      第 {page_count} 页: {page_size} 个，累计 {len(all_results)} 个")
+                    
+                    except TooManyRequests as e:
+                        # 分页过程中遇到速率限制，等待后继续
+                        wait_time = 60.0
+                        print(f"      ⏳ 分页时触发速率限制，等待 {wait_time:.0f} 秒...")
+                        await asyncio.sleep(wait_time)
+                        continue
+                    except Exception as e:
+                        # 分页失败，返回已获取的数据
+                        print(f"      ⚠️ 分页获取失败: {e}，返回已获取的 {len(all_results)} 个")
+                        break
+                
+                return all_results
+                
+            except TooManyRequests as e:
+                if attempt < max_retries:
+                    wait_time = base_delay * (2 ** attempt)
+                    
+                    # 尝试从响应头获取重置时间
+                    if hasattr(e, 'headers') and e.headers:
+                        reset_time = e.headers.get('x-rate-limit-reset')
+                        if reset_time:
+                            try:
+                                reset_dt = datetime.fromtimestamp(int(reset_time))
+                                wait_time = max(wait_time, (reset_dt - datetime.now()).total_seconds() + 5)
+                            except:
+                                pass
+                    
+                    print(f"⏳ 触发速率限制，等待 {wait_time:.0f} 秒后重试 (第 {attempt + 1}/{max_retries} 次)...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    print(f"❌ 获取 @{screen_name} 的 following 失败: 达到最大重试次数")
+                    return []
+                    
+            except Exception as e:
+                print(f"❌ 获取 @{screen_name} 的 following 失败: {e}")
+                import traceback
+                traceback.print_exc()
+                return []
+        
+        return []
+
+
 
 
 # ==================== 兼容性别名 ====================
